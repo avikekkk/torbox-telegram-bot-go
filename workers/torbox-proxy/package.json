@@ -1,0 +1,15 @@
+{
+  "name": "torbot-dl-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Free Cloudflare Worker proxy for TorBot (WebDAV / API / CDN)",
+  "main": "worker.js",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

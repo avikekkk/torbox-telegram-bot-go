@@ -1,0 +1,26 @@
+# Go build output
+/bin/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local environment/secrets
+.env
+*.env
+
+# Runtime logs
+logs/
+*.log
+
+# Local runtime database
+*.db
+*.db-journal
+
+# Cloudflare Worker dependencies and local state
+workers/torbox-proxy/node_modules/
+workers/torbox-proxy/.wrangler/
