@@ -10,7 +10,6 @@ import (
 
 	"github.com/gotd/td/tg"
 
-	"github.com/avikekkk/torbox-telegram-bot-go/internal/proxy"
 	"github.com/avikekkk/torbox-telegram-bot-go/internal/store"
 	"github.com/avikekkk/torbox-telegram-bot-go/internal/torbox"
 	"github.com/avikekkk/torbox-telegram-bot-go/internal/util"
@@ -159,11 +158,9 @@ func (p *channelPublisher) check(ctx context.Context, job store.Job) (bool, erro
 		return false, nil
 	}
 
-	link, err := b.requestLink(ctx, dlArgs{kind: job.Kind, explicit: true, id: job.ItemID}, true)
-	if err != nil {
-		return false, err
-	}
-	url := b.links.Link(proxy.Target{Kind: job.Kind, ID: job.ItemID, CDNURL: link.URL, Zip: true, ItemName: name})
+	// The Worker lists the files when the link is opened, so nothing needs
+	// requesting from TorBox now.
+	url := b.links.Page(job.Kind, job.ItemID, name)
 	if url == "" {
 		return false, errors.New("no Worker link yet")
 	}

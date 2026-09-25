@@ -17,7 +17,6 @@ import (
 	"github.com/gotd/td/tg"
 
 	"github.com/avikekkk/torbox-telegram-bot-go/internal/nzbhydra"
-	"github.com/avikekkk/torbox-telegram-bot-go/internal/proxy"
 	"github.com/avikekkk/torbox-telegram-bot-go/internal/torbox"
 )
 
@@ -256,9 +255,11 @@ func (r *request) adding(ctx context.Context, text string) func() {
 func (r *request) finishAdd(ctx context.Context, link *torbox.Link) {
 	r.bot.log.Info("Download added", "kind", link.Kind, "id", link.ID, "name", link.Name,
 		"cached", link.URL != "", "user_id", r.userID())
-	public := r.bot.links.Link(proxy.Target{
-		Kind: link.Kind, ID: link.ID, CDNURL: link.URL, Zip: true, ItemName: link.Name, OwnerID: r.userID(),
-	})
+	// A cached download is ready now, so its name links to the file page.
+	public := ""
+	if link.URL != "" {
+		public = r.bot.links.Page(link.Kind, link.ID, link.Name)
+	}
 	r.replyLogged(ctx, addedText(link.Kind, link.Name, r.userID(), r.firstName(), public))
 	r.bot.channel.enqueue(r.userID(), link)
 	if ctx.Err() == nil && r.bot.stillRunning(ctx, link) {

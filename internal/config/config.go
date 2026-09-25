@@ -60,11 +60,14 @@ type Bot struct {
 	DownloadChannelID int64
 
 	// Cloudflare Worker proxy that hides TorBox CDN and WebDAV URLs.
-	ProxyBaseURL       string
-	ProxySecret        string
-	ProxyMode          string
-	ProxyTTL           time.Duration
-	ProxyCDNTTL        time.Duration
+	ProxyBaseURL string
+	ProxySecret  string
+	ProxyMode    string
+	ProxyTTL     time.Duration
+	ProxyCDNTTL  time.Duration
+	// ProxyPageTTL is how long a file-list page link stays valid. It is what
+	// the channel posts, so it outlives the single-file links it opens.
+	ProxyPageTTL       time.Duration
 	ProxyWebDAVFlatten bool
 	ProxySingleUse     bool
 
@@ -287,6 +290,9 @@ func Load() (*Bot, error) {
 		return nil, err
 	}
 	if cfg.ProxyCDNTTL, err = parseSeconds("PROXY_CDN_TTL_SECONDS", env("PROXY_CDN_TTL_SECONDS"), 15*time.Minute, 60); err != nil {
+		return nil, err
+	}
+	if cfg.ProxyPageTTL, err = parseSeconds("PROXY_PAGE_TTL_SECONDS", env("PROXY_PAGE_TTL_SECONDS"), 24*time.Hour, 60); err != nil {
 		return nil, err
 	}
 	// The channel only ever posts Worker links; a raw TorBox CDN URL in a

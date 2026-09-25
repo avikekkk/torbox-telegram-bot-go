@@ -14,6 +14,8 @@
 //	webdav  stream a path from TorBox WebDAV (the Worker holds the API key)
 //	api     call requestdl by kind and ID, then stream it (zips work too)
 //	cdn     stream a short-lived CDN URL the bot already requested
+//	list    show a page of the download's files, each with its own link; a
+//	        single-file download streams straight away, never as a zip
 package proxy
 
 import (
@@ -48,6 +50,7 @@ type Builder struct {
 	mode          string
 	ttl           time.Duration
 	cdnTTL        time.Duration
+	pageTTL       time.Duration
 	webdavFlatten bool
 	singleUse     bool
 }
@@ -63,6 +66,7 @@ func New(cfg *config.Bot) *Builder {
 		mode:          cfg.ProxyMode,
 		ttl:           cfg.ProxyTTL,
 		cdnTTL:        cfg.ProxyCDNTTL,
+		pageTTL:       cfg.ProxyPageTTL,
 		webdavFlatten: cfg.ProxyWebDAVFlatten,
 		singleUse:     cfg.ProxySingleUse,
 	}
@@ -132,6 +136,24 @@ func (b *Builder) Link(target Target) string {
 		return b.cdnLink(target.CDNURL, name, target.OwnerID)
 	}
 	return ""
+}
+
+// Page links to the Worker's file-list page for a download. The Worker looks
+// the files up when the page opens, so the link needs no CDN URL and works for
+// as long as the download stays on TorBox, up to PROXY_PAGE_TTL_SECONDS. It is
+// never single-use: a channel post is opened by many people, and more than
+// once.
+func (b *Builder) Page(kind string, id int64, name string) string {
+	if b == nil {
+		return ""
+	}
+	claims := b.claims(b.pageTTL, 0)
+	delete(claims, "once")
+	claims["m"] = "list"
+	claims["k"] = kind
+	claims["id"] = id
+	setName(claims, name)
+	return b.seal(claims)
 }
 
 func (b *Builder) cdnLink(cdnURL, name string, ownerID int64) string {

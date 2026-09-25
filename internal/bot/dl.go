@@ -205,9 +205,14 @@ func downloadText(link *torbox.Link, public string, proxyEnabled bool) string {
 // sendDownload replies with a link, in whichever authorized chat asked for it.
 // Behind the proxy the link is a Worker link, never the TorBox CDN URL.
 func (r *request) sendDownload(ctx context.Context, link *torbox.Link, zip bool, fileID *int64) {
-	public := r.bot.links.Link(proxy.Target{
-		Kind: link.Kind, ID: link.ID, CDNURL: link.URL, Zip: zip, FileID: fileID,
-		ItemName: link.Name, OwnerID: r.userID(),
-	})
+	// The whole download opens the file page; one file asked for by ID gets a
+	// direct link.
+	public := r.bot.links.Page(link.Kind, link.ID, link.Name)
+	if !zip {
+		public = r.bot.links.Link(proxy.Target{
+			Kind: link.Kind, ID: link.ID, CDNURL: link.URL, FileID: fileID,
+			ItemName: link.Name, OwnerID: r.userID(),
+		})
+	}
 	r.replyLogged(ctx, downloadText(link, public, r.bot.links != nil))
 }

@@ -138,8 +138,12 @@ File.Name.2026.1080p - [42]
 SUCCESS • 8.45 GB • DL
 ```
 
-The name is monospace and `DL` is the Worker link. Failed downloads show `FAILED` instead. A
-download deleted before it finishes is dropped after five minutes.
+The name is monospace and `DL` opens a file page on the Worker: every file in the download
+with its size, each downloadable on its own, plus "Download all (zip)". A download that is a
+single file skips the page and downloads the file itself. The page link works for 24 hours
+(`PROXY_PAGE_TTL_SECONDS`) and can be opened any number of times; the file links on it last 6
+hours, so reload the page for fresh ones. Failed downloads show `FAILED` instead. A download
+deleted before it finishes is dropped after five minutes, and a deleted download's page says so.
 
 ## NZB search (NZBHydra2)
 

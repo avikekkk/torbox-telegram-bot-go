@@ -2,6 +2,10 @@ name = "torbot-dl"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
+# PROXY_SECRET and TORBOX_API_KEY live in the dashboard, not this file. Without
+# this, every `wrangler deploy` would delete them and break every link.
+keep_vars = true
+
 # Free workers.dev URL after deploy:
 #   https://torbot-dl.<your-subdomain>.workers.dev
 #

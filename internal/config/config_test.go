@@ -17,7 +17,7 @@ func setRequired(t *testing.T) {
 	t.Setenv("TORBOX_API_KEY", "key")
 	for _, name := range []string{
 		"AUTHORIZED_CHAT_IDS", "DATABASE_PATH", "HTTP_TIMEOUT", "DOWNLOAD_CHANNEL_ID", "PROXY_BASE_URL",
-		"PROXY_SECRET", "PROXY_MODE", "PROXY_TTL_SECONDS", "PROXY_CDN_TTL_SECONDS", "PROXY_WEBDAV_FLATTEN",
+		"PROXY_SECRET", "PROXY_MODE", "PROXY_TTL_SECONDS", "PROXY_CDN_TTL_SECONDS", "PROXY_PAGE_TTL_SECONDS", "PROXY_WEBDAV_FLATTEN",
 		"PROXY_SINGLE_USE", "NZBHYDRA_URL", "NZBHYDRA_DOWNLOADER_NAME",
 		"NZBSEARCH_RESULTS_PER_PAGE", "NZBSEARCH_AUTOREDACT",
 	} {
@@ -38,6 +38,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.ProxyMode != ProxyModeWebDAV || cfg.ProxyTTL != time.Hour || cfg.ProxyCDNTTL != 15*time.Minute {
 		t.Errorf("proxy defaults = %q %v %v", cfg.ProxyMode, cfg.ProxyTTL, cfg.ProxyCDNTTL)
+	}
+	if cfg.ProxyPageTTL != 24*time.Hour {
+		t.Errorf("page link TTL = %v, want 24h", cfg.ProxyPageTTL)
 	}
 	if !cfg.ProxySingleUse || cfg.ProxyWebDAVFlatten {
 		t.Errorf("proxy switches = single-use %v, flatten %v", cfg.ProxySingleUse, cfg.ProxyWebDAVFlatten)

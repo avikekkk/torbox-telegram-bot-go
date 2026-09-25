@@ -9,6 +9,7 @@ Hides TorBox CDN / WebDAV URLs behind your free `*.workers.dev` link — same id
 | **webdav** | path(s) | `TORBOX_API_KEY` | Single files from library |
 | **api** | kind + id (+ zip) | `TORBOX_API_KEY` | Zip packages / reliable ids |
 | **cdn** | short-lived CDN url | secret only | Multi-user keys (bot already did requestdl) |
+| **list** | kind + id | `TORBOX_API_KEY` | File page for channel posts and `/dl`: pick one file or download all as a zip. A single-file download streams directly |
 
 Default bot setting: `PROXY_MODE=webdav` (falls back to api for zips, then cdn).
 
@@ -85,3 +86,10 @@ npx wrangler kv namespace create TORBOT_JTI
 - **Zip** whole downloads wrap the CDN URL (encrypted), not WebDAV.
 - Free Worker limits apply; fine for personal / light use.
 - Do not commit secrets. Redeploy bot + Worker together after secret changes.
+
+## Files
+
+- `worker.js`: the Worker.
+- `fonts.js`: Space Grotesk and Space Mono (SIL Open Font License), served by the Worker from
+  `/f/`, so the file pages load nothing from third parties. Deploy it together with `worker.js`.
+- `test/worker.test.mjs`: tests against a fake TorBox, run with `npm test` (Node 22+).

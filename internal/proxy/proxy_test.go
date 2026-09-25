@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -137,5 +138,43 @@ func TestWebDAVPathsFlatten(t *testing.T) {
 	}
 	if got := WebDAVPaths("", "", torbox.KindWebDL, false); len(got) != 0 {
 		t.Errorf("WebDAVPaths(empty) = %v", got)
+	}
+}
+
+func TestPageLinkIsReusableAndLongLived(t *testing.T) {
+	b := newBuilder(config.ProxyModeWebDAV)
+	b.pageTTL = 24 * time.Hour
+	claims := claimsOf(t, b.Page(torbox.KindUsenet, 2522511, "Crew.Girl.S01E06"))
+	if claims["m"] != "list" || claims["k"] != "usenet" || claims["id"] != float64(2522511) || claims["n"] != "Crew.Girl.S01E06" {
+		t.Errorf("claims = %v", claims)
+	}
+	// Opened by everyone in the channel, and more than once.
+	if _, once := claims["once"]; once {
+		t.Errorf("page link is single-use: %v", claims)
+	}
+	exp := time.Unix(int64(claims["exp"].(float64)), 0)
+	if left := time.Until(exp); left < 23*time.Hour || left > 24*time.Hour {
+		t.Errorf("page link lives %v, want 24h", left)
+	}
+	var disabled *Builder
+	if disabled.Page(torbox.KindTorrent, 1, "x") != "" {
+		t.Error("disabled builder made a page link")
+	}
+}
+
+func TestPrintPageTokens(t *testing.T) {
+	out := os.Getenv("PAGE_TOKENS_OUT")
+	if out == "" {
+		t.Skip("set PAGE_TOKENS_OUT to write tokens for the Worker test")
+	}
+	b := newBuilder(config.ProxyModeWebDAV)
+	b.pageTTL = time.Hour
+	var lines []string
+	for _, id := range []int64{1, 2, 3, 4} {
+		link := b.Page(torbox.KindTorrent, id, "fallback")
+		lines = append(lines, strings.TrimPrefix(link, "https://dl.example.workers.dev/d/"))
+	}
+	if err := os.WriteFile(out, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
