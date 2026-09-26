@@ -1,6 +1,6 @@
 # TorBot Cloudflare Worker proxy (free)
 
-Hides TorBox CDN URLs behind your free `*.workers.dev` link — same idea as a GDrive CF index.
+Hides TorBox CDN URLs behind your free `*.workers.dev` link.
 
 ## Modes
 

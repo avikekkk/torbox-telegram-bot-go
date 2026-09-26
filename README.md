@@ -1,24 +1,23 @@
 # TorBot
 
-Telegram bot for adding and monitoring TorBox torrent, Usenet, and web downloads.
+A Telegram bot that adds downloads to TorBox and shows their progress. It works with torrents,
+Usenet (NZB) and web downloads.
 
-Written in Go on [gotd/td](https://github.com/gotd/td) (MTProto), with persistent authorization,
-a live status view, NZBHydra2 search, a download channel, and host stats. SQLite is the pure-Go
-`modernc.org/sqlite`, so there is nothing to link against and no cgo.
+The bot does not search for torrents. You give it a magnet link, a hash, a `.torrent` file, a
+`.nzb` file or a web URL. If you run NZBHydra2, the bot can also search Usenet through it.
 
-TorBot does not search for torrents. Users supply a magnet/hash, `.torrent` file, `.nzb` file, or
-web URL. Usenet search goes through the operator's own NZBHydra2 instance (optional).
+## What you need
 
-## Prerequisites
-
-- Go 1.26+
-- Telegram API credentials (`api_id` / `api_hash`) from https://my.telegram.org/apps and a bot token
+- Go 1.26 or newer
+- Telegram API ID and API hash from https://my.telegram.org/apps
+- A bot token from BotFather
 - A TorBox API key
-- Optional: a Cloudflare account and Node.js for the download proxy in `workers/torbox-proxy`
+- Optional: a Cloudflare account and Node.js, for the download proxy in `workers/torbox-proxy`
 
 ## Setup
 
-1. Create `.env` from the template and fill in the values.
+Copy the example file and fill it in:
+
 ```bash
 cp .env.example .env
 ```
@@ -33,14 +32,13 @@ AUTHORIZED_CHAT_IDS=-1001234567890,987654321
 TORBOX_API_KEY=your_torbox_api_key
 ```
 
-Notes:
-- `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_BOT_TOKEN`, `OWNER_ID`, and `TORBOX_API_KEY`
-  are required; the rest have defaults. `.env.example` documents every setting.
-- `AUTHORIZED_CHAT_IDS` is an optional comma-separated list of user or group IDs (Bot API style,
-  e.g. `-1001234567890`) allowed to use the bot. A user ID there works in that user's private chat.
-- `DATABASE_PATH` (default `torbot.db`) holds IDs authorized with `/auth` and the channel post
-  queue. Both survive a restart.
-- Logs go to `logs/torbot.log` as well as the console, starting fresh on every run.
+- These are required: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_BOT_TOKEN`, `OWNER_ID`
+  and `TORBOX_API_KEY`. Everything else has a default. `.env.example` lists every setting.
+- `AUTHORIZED_CHAT_IDS` is optional. It is a comma-separated list of user or group IDs that may
+  use the bot. Group IDs look like `-1001234567890`.
+- `DATABASE_PATH` (default `torbot.db`) stores users added with `/auth` and the channel post
+  queue. Both are kept after a restart.
+- Logs are written to the console and to `logs/torbot.log`. The log file starts fresh on each run.
 
 ## Run
 
@@ -48,45 +46,41 @@ Notes:
 ./start.sh
 ```
 
-`start.sh` builds `bin/torbot` and runs it in the foreground. Press Ctrl+C to stop; commands still
-running get a few seconds to report their final state.
+This builds `bin/torbot` and runs it. Press Ctrl+C to stop.
 
-Or build and run manually:
+To build and run it yourself:
 
 ```bash
 go build -o bin/torbot ./cmd/torbot
 ./bin/torbot
 ```
 
-The bot keeps its Telegram session in memory and re-authenticates from the bot token on every
-start, so no session file is written.
+The bot logs in with its token on every start. It does not save a session file.
 
 ## Commands
 
-| Command | Description |
+| Command | What it does |
 |---|---|
-| `/start`, `/help` | Command reference |
-| `/torrent <magnet-or-hash>` | Add a magnet or info hash, or reply to a magnet |
-| `/torrent` with `.torrent` | Upload a torrent file, by reply or as its caption |
-| `/nzb <nzb-id> [nzb-id...]` | Add search results by NZB ID (up to 10) |
-| `/nzb` with `.nzb` | Upload an NZB file, by reply or as its caption |
-| `/nzbsearch <query> [--mx\|--mn]` | Search NZBHydra2, paged, with a Telegraph mirror |
-| `/web <url>` | Add a supported hoster or direct URL |
-| `/status` | Live active downloads, refreshed every three seconds |
-| `/server` | TorBox plan plus host uptime, disk, CPU, and RAM |
-| `/purge` | Owner only. Permanently delete all TorBox content, after confirmation (private chat) |
-| `/logs` | Owner only. Uploads the current log file |
-| `/auth [id]`, `/unauth [id]` | Owner only. Target is the replied-to user, an explicit ID, or the current chat |
+| `/start`, `/help` | Show the list of commands |
+| `/torrent <magnet or hash>` | Add a torrent. You can also reply to a message with a magnet |
+| `/torrent` with a `.torrent` file | Add a torrent file. Reply to the file, or send it with `/torrent` as the caption |
+| `/nzb <nzb-id> [nzb-id...]` | Add up to 10 NZB search results by ID |
+| `/nzb` with a `.nzb` file | Add an NZB file. Reply to the file, or send it with `/nzb` as the caption |
+| `/nzbsearch <query> [--mx\|--mn]` | Search NZBHydra2. `--mx` shows the largest first, `--mn` the smallest |
+| `/web <url>` | Add a file host link or a direct URL |
+| `/status` | Show active downloads. Updates every 3 seconds |
+| `/server` | Show your TorBox plan and the server's uptime, disk, CPU and RAM |
+| `/purge` | Owner only. Delete everything in TorBox, after you confirm. Private chat only |
+| `/logs` | Owner only. Send the current log file |
+| `/auth [id]`, `/unauth [id]` | Owner only. Allow or remove a user or chat |
 
-Every successful add (`/torrent`, `/nzb`, `/web`) opens a live `/status` right after its
-confirmation, as the NZBGet bot does. Download IDs come from `/status` or the TorBox dashboard. NZB IDs use the same encoding as the
-NZBGet usenet bot, so IDs copied from either bot work with `/nzb`.
+- After you add something, the bot opens `/status` so you can watch it.
+- Only the person who searched can change pages or close a search result.
+- Only the owner can confirm `/purge`.
+- `/auth` and `/unauth` work on the user you reply to, an ID you type, or the current chat.
 
-Only the requester can page or close a search result, and only the owner who asked can confirm a
-`/purge`.
-
-The `/` menu is registered on startup. To set it through BotFather instead, send `/setcommands`
-and paste:
+The bot sets its `/` command menu when it starts. To set it in BotFather instead, send
+`/setcommands` and paste:
 
 ```text
 help - Show the bot commands
@@ -102,30 +96,28 @@ auth - [id] authorize a user or chat (admin only)
 unauth - [id] remove authorization (admin only)
 ```
 
-## Authorization
+## Who can use the bot
 
-- Access is granted if any one applies: owner, ID in `AUTHORIZED_CHAT_IDS`, or ID authorized at
-  runtime with `/auth` (by chat or by user).
-- `/purge`, `/logs`, `/auth` and `/unauth` are owner-only.
-- IDs in `AUTHORIZED_CHAT_IDS` live in `.env` and cannot be revoked with `/unauth`.
-- Anyone else gets `Unauthorized`.
+- The owner (`OWNER_ID`).
+- Any user or chat in `AUTHORIZED_CHAT_IDS`.
+- Any user or chat the owner adds with `/auth`.
 
-## Groups and private chats
-
-Every command works the same in an authorized group as in an authorized private chat, except
-`/purge`, which the owner runs one-to-one.
+Everyone else gets `Unauthorized`. IDs in `.env` cannot be removed with `/unauth`; edit `.env`
+instead. Commands work the same in groups and private chats, except `/purge`, which only works
+in a private chat.
 
 ## Download channel
 
-Add the bot to the target channel as an administrator allowed to post, then set:
+The bot can post finished downloads to a Telegram channel. Make the bot an admin in the channel
+with permission to post, then set:
 
 ```env
-DOWNLOAD_CHANNEL_ID=-1004452601845
+DOWNLOAD_CHANNEL_ID=-1001234567890
 ```
 
-Every torrent, Usenet and web download added through the bot is stored and watched. Cached downloads are posted as soon as a
-link exists; others when they finish. The channel only ever gets Worker links, so it needs the
-proxy below.
+This needs the Cloudflare proxy (see below), so the channel never shows real TorBox links.
+
+A post looks like this:
 
 ```text
 File.Name.2026.1080p - [42]
@@ -133,32 +125,35 @@ File.Name.2026.1080p - [42]
 SUCCESS • 8.45 GB • DL
 ```
 
-The name is monospace and `DL` opens a file page on the Worker: every file in the download
-with its size, each downloadable on its own, plus "Download all (zip)". A download that is a
-single file skips the page and downloads the file itself. The page link works for 7 days
-(`PROXY_PAGE_TTL_SECONDS`) and can be opened any number of times; the file links on it last 6
-hours, so reload the page for fresh ones. Failed downloads show `FAILED` instead. A download
-deleted before it finishes is dropped after five minutes, and a deleted download's page says so.
+- Downloads TorBox already has are posted right away. Others are posted when they finish.
+- `DL` opens a page that lists every file in the download. Each file has a download button and a
+  copy link button, and there is a "Download all" button for a zip.
+- If the download is a single file, `DL` downloads it directly.
+- The page link works for 7 days (`PROXY_PAGE_TTL_SECONDS`) and can be opened many times. The
+  file links on the page work for 6 hours. Reload the page to get new ones.
+- A failed download is posted as `FAILED`.
+- If a download is deleted before it finishes, it is skipped. If it is deleted later, its page
+  says so.
 
 ## NZB search (NZBHydra2)
 
-`/nzbsearch` and `/nzb` with NZB IDs use NZBHydra2's internal API. Results reach TorBox through the TorBox
-downloader configured in Hydra; the bot then finds the new TorBox download so channel
-posts keep working.
+`/nzbsearch` and `/nzb` with IDs need NZBHydra2. Hydra sends the NZB to TorBox using the TorBox
+downloader you set up in Hydra.
 
 ```env
-# Hydra login as basic auth in the URL; a trailing /api is accepted
+# Hydra URL, with the Hydra login in it
 NZBHYDRA_URL=https://user:password@hydra.example.com
-# Downloader name exactly as configured in Hydra (Config -> Downloaders)
+# The downloader name exactly as it appears in Hydra (Config -> Downloaders)
 NZBHYDRA_DOWNLOADER_NAME=TorBox
 NZBSEARCH_RESULTS_PER_PAGE=5
-# Redact results (message + Telegraph page) after N seconds; 0 = only on CLOSE
+# Hide search results after this many seconds. 0 means only when you press CLOSE
 NZBSEARCH_AUTOREDACT=0
 ```
 
 ## Cloudflare download proxy
 
-The optional Worker hides TorBox CDN URLs behind your Worker domain.
+The proxy is a free Cloudflare Worker. It gives out links on your own `workers.dev` address, so
+real TorBox links are never shared.
 
 ```bash
 cd workers/torbox-proxy
@@ -168,22 +163,27 @@ npx wrangler secret put TORBOX_API_KEY
 npx wrangler deploy
 ```
 
-Configure the bot with the same secret:
+Then add the Worker address and the same secret to `.env`:
 
 ```env
 PROXY_BASE_URL=https://your-worker.workers.dev
 PROXY_SECRET=the_same_long_secret
 ```
 
-Tokens are unchanged from the Python bot, so an already deployed Worker keeps working. See
-`workers/torbox-proxy/README.md` for details.
+`PROXY_SECRET` must be at least 16 characters. More details are in
+`workers/torbox-proxy/README.md`.
 
 ## Rate limits
 
-TorBox limits are applied per API key before TorBox has to enforce them: about 4 requests a
-second, a soft stop at 55 creates an hour per kind (TorBox allows 60), a 2.5 second gap between
-one user's adds, and retries with backoff on 429 and 5xx. Telegram flood waits of up to 30 seconds
-are sat out and retried. See `docs/TORBOX_COMPLIANCE.md`.
+The bot stays under TorBox's limits on its own:
+
+- About 4 requests per second.
+- At most 55 new downloads per hour of each type (TorBox allows 60).
+- A 2.5 second wait between one user's adds.
+- Failed requests (429 and 5xx) are retried with a growing delay.
+
+If Telegram asks the bot to wait (up to 30 seconds), it waits and tries again. See
+`docs/TORBOX_COMPLIANCE.md` for more.
 
 ## Tests
 
@@ -191,26 +191,27 @@ are sat out and retried. See `docs/TORBOX_COMPLIANCE.md`.
 go test ./...
 ```
 
-HTTP tests run against local fake TorBox and NZBHydra servers.
+The tests use fake TorBox and NZBHydra servers, so they need no accounts. The Worker has its own
+tests: run `npm test` in `workers/torbox-proxy`.
 
-## Project structure
+## Project layout
 
-- `cmd/torbot/main.go` : Entry point, logging, signal handling.
-- `internal/config/config.go` : Environment-based configuration and validation.
-- `internal/bot/bot.go` : Client setup, command routing, authorization, help text.
-- `internal/bot/add.go` : `/torrent`, `/nzb`, `/web`.
-- `internal/bot/status.go` : Live `/status`.
-- `internal/bot/purge.go` : `/purge` confirmation and progress.
-- `internal/bot/search.go`, `nzb.go` : `/nzbsearch`, `/nzb`, Telegraph mirror, redaction.
-- `internal/bot/channel.go` : Download channel publisher.
-- `internal/bot/admin.go`, `stats.go` : `/logs`, `/auth`, `/unauth`, `/server`.
-- `internal/torbox` : TorBox API client, rate limits, download model.
-- `internal/nzbhydra` : NZBHydra2 internal API client.
-- `internal/proxy` : Encrypted Worker links.
-- `internal/store/store.go` : SQLite authorizations and channel queue.
-- `workers/torbox-proxy` : The Cloudflare Worker.
+- `cmd/torbot/main.go`: starts the bot, sets up logging, handles Ctrl+C.
+- `internal/config`: reads and checks `.env`.
+- `internal/bot/bot.go`: Telegram setup, command routing, access checks, help text.
+- `internal/bot/add.go`: `/torrent`, `/nzb`, `/web`.
+- `internal/bot/status.go`: `/status`.
+- `internal/bot/purge.go`: `/purge`.
+- `internal/bot/search.go`, `nzb.go`: `/nzbsearch` and `/nzb`.
+- `internal/bot/channel.go`: download channel posts.
+- `internal/bot/admin.go`, `stats.go`: `/logs`, `/auth`, `/unauth`, `/server`.
+- `internal/torbox`: TorBox API client and rate limits.
+- `internal/nzbhydra`: NZBHydra2 client.
+- `internal/proxy`: builds the encrypted Worker links.
+- `internal/store`: SQLite storage for access and the channel queue.
+- `workers/torbox-proxy`: the Cloudflare Worker.
 
-## Safety
+## Responsibility
 
-Operators and TorBox account holders remain responsible for lawful use and compliance with TorBox
-terms. Keep `.env` out of git; it holds the bot token and the TorBox API key.
+You are responsible for how you use this bot and for following TorBox's terms. Never commit
+`.env` to git. It holds your bot token and TorBox API key.
