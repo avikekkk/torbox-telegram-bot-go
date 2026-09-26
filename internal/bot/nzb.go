@@ -157,7 +157,7 @@ func (r *request) handleNZB(ctx context.Context) {
 // addResult sends a result to TorBox through NZBHydra's downloader, then finds
 // the download it became. It returns a nil link when Hydra accepted the result
 // but the TorBox download could not be identified yet: it is still added, and
-// only /dl and the channel post need the ID.
+// only the channel post needs the ID.
 func (r *request) addResult(ctx context.Context, resultID, title string) (*torbox.Link, error) {
 	b := r.bot
 	// Several IDs in one /nzb trip the per-user cooldown; each waits it

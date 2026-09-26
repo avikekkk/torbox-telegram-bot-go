@@ -13,14 +13,6 @@ keep_vars = true
 #   npx wrangler secret put PROXY_SECRET   # 16+ chars, same as bot
 #   npx wrangler secret put TORBOX_API_KEY
 #
-# Optional durable single-use (recommended):
-#   npx wrangler kv namespace create TORBOT_JTI
-#   then bind below with the returned id:
-# [[kv_namespaces]]
-# binding = "TOKEN_KV"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#
 # Optional vars:
 # [vars]
-# WEBDAV_BASE = "https://webdav.torbox.app"
 # TORBOX_API_BASE = "https://api.torbox.app/v1"

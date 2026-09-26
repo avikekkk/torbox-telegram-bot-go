@@ -21,13 +21,6 @@ const DefaultHTTPTimeout = 30 * time.Second
 // MinProxySecret is the shortest PROXY_SECRET the Worker accepts.
 const MinProxySecret = 16
 
-// Proxy modes, matching the Worker's token "m" claim.
-const (
-	ProxyModeWebDAV = "webdav"
-	ProxyModeAPI    = "api"
-	ProxyModeCDN    = "cdn"
-)
-
 // Error is returned when required environment configuration is missing or invalid.
 type Error struct {
 	msg string
@@ -59,17 +52,12 @@ type Bot struct {
 	// finished downloads are posted to. Zero disables the channel.
 	DownloadChannelID int64
 
-	// Cloudflare Worker proxy that hides TorBox CDN and WebDAV URLs.
+	// Cloudflare Worker proxy that hides TorBox CDN URLs.
 	ProxyBaseURL string
 	ProxySecret  string
-	ProxyMode    string
-	ProxyTTL     time.Duration
-	ProxyCDNTTL  time.Duration
 	// ProxyPageTTL is how long a file-list page link stays valid. It is what
 	// the channel posts, so it outlives the single-file links it opens.
-	ProxyPageTTL       time.Duration
-	ProxyWebDAVFlatten bool
-	ProxySingleUse     bool
+	ProxyPageTTL time.Duration
 
 	// NZBHydraURL is the Hydra base URL, basic-auth credentials included and
 	// any trailing /api removed. Empty disables /nzbsearch and adding NZBs by ID.
@@ -126,21 +114,6 @@ func parseAuthorizedChatIDs(value string) ([]int64, error) {
 	return chatIDs, nil
 }
 
-// parseBool reads a 0/1 style switch, falling back when unset. Anything else is
-// rejected rather than guessed at: "5" silently meaning off is how a setting
-// stays disabled without anyone noticing.
-func parseBool(name, value string, fallback bool) (bool, error) {
-	switch strings.ToLower(value) {
-	case "":
-		return fallback, nil
-	case "1", "true", "yes", "on":
-		return true, nil
-	case "0", "false", "no", "off":
-		return false, nil
-	}
-	return false, configErrorf("%s must be 1 or 0", name)
-}
-
 // parseSeconds reads a whole number of seconds, at least min.
 func parseSeconds(name, value string, fallback time.Duration, min int) (time.Duration, error) {
 	if value == "" {
@@ -175,16 +148,6 @@ func parseChannelID(value string) (int64, error) {
 		return 0, configErrorf("DOWNLOAD_CHANNEL_ID must be a channel ID such as -1001234567890")
 	}
 	return id, nil
-}
-
-func parseProxyMode(value string) (string, error) {
-	switch mode := strings.ToLower(value); mode {
-	case "":
-		return ProxyModeWebDAV, nil
-	case ProxyModeWebDAV, ProxyModeAPI, ProxyModeCDN:
-		return mode, nil
-	}
-	return "", configErrorf("PROXY_MODE must be webdav, api or cdn")
 }
 
 // parseProxyBaseURL keeps the Worker origin and any path prefix, without a
@@ -283,36 +246,13 @@ func Load() (*Bot, error) {
 	if cfg.ProxyBaseURL != "" && len(cfg.ProxySecret) < MinProxySecret {
 		return nil, configErrorf("PROXY_SECRET must be at least %d characters when PROXY_BASE_URL is set", MinProxySecret)
 	}
-	if cfg.ProxyMode, err = parseProxyMode(env("PROXY_MODE")); err != nil {
-		return nil, err
-	}
-	if cfg.ProxyTTL, err = parseSeconds("PROXY_TTL_SECONDS", env("PROXY_TTL_SECONDS"), time.Hour, 60); err != nil {
-		return nil, err
-	}
-	if cfg.ProxyCDNTTL, err = parseSeconds("PROXY_CDN_TTL_SECONDS", env("PROXY_CDN_TTL_SECONDS"), 15*time.Minute, 60); err != nil {
-		return nil, err
-	}
-	if cfg.ProxyPageTTL, err = parseSeconds("PROXY_PAGE_TTL_SECONDS", env("PROXY_PAGE_TTL_SECONDS"), 24*time.Hour, 60); err != nil {
+	if cfg.ProxyPageTTL, err = parseSeconds("PROXY_PAGE_TTL_SECONDS", env("PROXY_PAGE_TTL_SECONDS"), 7*24*time.Hour, 60); err != nil {
 		return nil, err
 	}
 	// The channel only ever posts Worker links; a raw TorBox CDN URL in a
 	// channel is exactly the private-link sharing the ToS forbids.
 	if cfg.ChannelEnabled() && !cfg.ProxyEnabled() {
 		return nil, configErrorf("DOWNLOAD_CHANNEL_ID needs PROXY_BASE_URL and PROXY_SECRET")
-	}
-
-	switches := []struct {
-		name     string
-		fallback bool
-		target   *bool
-	}{
-		{"PROXY_WEBDAV_FLATTEN", false, &cfg.ProxyWebDAVFlatten},
-		{"PROXY_SINGLE_USE", true, &cfg.ProxySingleUse},
-	}
-	for _, s := range switches {
-		if *s.target, err = parseBool(s.name, env(s.name), s.fallback); err != nil {
-			return nil, err
-		}
 	}
 
 	if cfg.NZBHydraURL, err = ParseNZBHydraURL(env("NZBHYDRA_URL")); err != nil {

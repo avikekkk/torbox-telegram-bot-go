@@ -89,9 +89,9 @@ async function open(token) {
   return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(1, 13) }, await aesKey("decrypt"), b.slice(13)));
 }
 
-// A page link as the bot makes it: list mode, 24 hours, not single-use.
+// A page link as the bot makes it: list mode, 7 days.
 const pageLink = (id) =>
-  seal({ v: 1, exp: Math.floor(Date.now() / 1000) + 86400, iat: 0, jti: "j" + id, m: "list", k: "torrent", id, n: "fallback" });
+  seal({ v: 1, exp: Math.floor(Date.now() / 1000) + 7 * 86400, iat: 0, m: "list", k: "torrent", id, n: "fallback" });
 
 // Rows of the table, in order: folders (href "?dir=..."), then files ("/d/...").
 // The "Up one folder" row is left out.
@@ -184,6 +184,26 @@ test("file links stream one file with its name, reusably; download all is the zi
 
   const zip = html.match(/class="btn" href="(\/d\/[^"]+)"/)[1];
   assert.equal(await (await get(zip)).text(), "bytes:/zip");
+});
+
+test("file rows carry a copy link button; the script runs only by nonce", async () => {
+  const r = await get("/d/" + (await pageLink(1)) + "?dir=Specials");
+  const html = await r.text();
+  const buttons = [...html.matchAll(/<button type="button" class="dl copy" data-href="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(buttons, rowsOf(html).map((x) => x.href), "one per file, copying its download link");
+
+  const nonce = r.headers.get("content-security-policy").match(/script-src 'nonce-([\w-]+)'/)[1];
+  assert.equal([...html.matchAll(/<script\b[^>]*>/g)].length, 1, "one script");
+  assert.ok(html.includes(`<script nonce="${nonce}">`));
+  assert.notEqual(nonce, (await (await get("/d/" + (await pageLink(1)))).headers.get("content-security-policy")).match(/nonce-([\w-]+)/)[1], "fresh per page");
+
+  const top = await (await get("/d/" + (await pageLink(1)))).text();
+  assert.ok(!/<tr><td class="name"><a href="\?dir=[^"]*">(?:(?!<\/tr>).)*class="dl copy"/.test(top), "folders have no copy button");
+
+  // Message pages stay script-free.
+  const gone = await get("/d/" + (await pageLink(3)));
+  assert.ok(!gone.headers.get("content-security-policy").includes("script-src"));
+  assert.ok(!(await gone.text()).includes("<script"));
 });
 
 test("single-file download skips the page", async () => {
