@@ -324,7 +324,7 @@ func TestParseItemReadsTelemetry(t *testing.T) {
 	if !item.HasDownloaded || item.Downloaded != 400 || !item.HasETA || item.ETA != 30 {
 		t.Errorf("telemetry = %+v", item)
 	}
-	if id, ok := item.FirstFileID(); !ok || id != 8 || item.Files[0].Name != "a.mkv" {
+	if len(item.Files) != 1 || !item.Files[0].HasID || item.Files[0].ID != 8 || item.Files[0].Name != "a.mkv" {
 		t.Errorf("files = %+v", item.Files)
 	}
 	bare := parseItem(map[string]any{"id": float64(1)}, KindTorrent)

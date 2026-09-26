@@ -17,8 +17,7 @@ func setRequired(t *testing.T) {
 	t.Setenv("TORBOX_API_KEY", "key")
 	for _, name := range []string{
 		"AUTHORIZED_CHAT_IDS", "DATABASE_PATH", "HTTP_TIMEOUT", "DOWNLOAD_CHANNEL_ID", "PROXY_BASE_URL",
-		"PROXY_SECRET", "PROXY_MODE", "PROXY_TTL_SECONDS", "PROXY_CDN_TTL_SECONDS", "PROXY_PAGE_TTL_SECONDS", "PROXY_WEBDAV_FLATTEN",
-		"PROXY_SINGLE_USE", "NZBHYDRA_URL", "NZBHYDRA_DOWNLOADER_NAME",
+		"PROXY_SECRET", "PROXY_PAGE_TTL_SECONDS", "NZBHYDRA_URL", "NZBHYDRA_DOWNLOADER_NAME",
 		"NZBSEARCH_RESULTS_PER_PAGE", "NZBSEARCH_AUTOREDACT",
 	} {
 		t.Setenv(name, "")
@@ -36,14 +35,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.OwnerID != 42 || cfg.DatabasePath != DefaultDatabasePath || cfg.HTTPTimeout != DefaultHTTPTimeout {
 		t.Errorf("cfg = %+v", cfg)
 	}
-	if cfg.ProxyMode != ProxyModeWebDAV || cfg.ProxyTTL != time.Hour || cfg.ProxyCDNTTL != 15*time.Minute {
-		t.Errorf("proxy defaults = %q %v %v", cfg.ProxyMode, cfg.ProxyTTL, cfg.ProxyCDNTTL)
-	}
-	if cfg.ProxyPageTTL != 24*time.Hour {
-		t.Errorf("page link TTL = %v, want 24h", cfg.ProxyPageTTL)
-	}
-	if !cfg.ProxySingleUse || cfg.ProxyWebDAVFlatten {
-		t.Errorf("proxy switches = single-use %v, flatten %v", cfg.ProxySingleUse, cfg.ProxyWebDAVFlatten)
+	if cfg.ProxyPageTTL != 7*24*time.Hour {
+		t.Errorf("page link TTL = %v, want 7 days", cfg.ProxyPageTTL)
 	}
 	if cfg.ProxyEnabled() || cfg.NZBHydraEnabled() || cfg.ChannelEnabled() {
 		t.Error("optional features should default off")
@@ -72,13 +65,10 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"OWNER_ID", "me", "OWNER_ID"},
 		{"AUTHORIZED_CHAT_IDS", "1,two", "AUTHORIZED_CHAT_IDS"},
 		{"DOWNLOAD_CHANNEL_ID", "-12345", "DOWNLOAD_CHANNEL_ID"},
-		{"PROXY_MODE", "ftp", "PROXY_MODE"},
 		{"PROXY_BASE_URL", "worker.dev", "PROXY_BASE_URL"},
 		{"NZBHYDRA_URL", "hydra:5076", "NZBHYDRA_URL"},
 		{"NZBSEARCH_RESULTS_PER_PAGE", "11", "NZBSEARCH_RESULTS_PER_PAGE"},
 		{"NZBSEARCH_AUTOREDACT", "-1", "NZBSEARCH_AUTOREDACT"},
-		// "5" is neither on nor off, so it is refused rather than guessed at.
-		{"PROXY_SINGLE_USE", "5", "PROXY_SINGLE_USE"},
 	}
 	for _, c := range cases {
 		setRequired(t)

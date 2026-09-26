@@ -33,7 +33,7 @@ const (
 	KindWebDL   = "webdl"
 )
 
-// Kinds lists the three download libraries in the order /dl tries them.
+// Kinds lists the three download libraries.
 var Kinds = []string{KindTorrent, KindUsenet, KindWebDL}
 
 // retryAttempts bounds how often one request is sent before giving up.

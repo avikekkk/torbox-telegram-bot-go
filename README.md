@@ -41,8 +41,6 @@ Notes:
 - `DATABASE_PATH` (default `torbot.db`) holds IDs authorized with `/auth` and the channel post
   queue. Both survive a restart.
 - Logs go to `logs/torbot.log` as well as the console, starting fresh on every run.
-- Switches such as `PROXY_SINGLE_USE` take `1` or `0`; anything else stops startup with a
-  `Configuration error:` line naming the setting.
 
 ## Run
 
@@ -74,7 +72,6 @@ start, so no session file is written.
 | `/nzb` with `.nzb` | Upload an NZB file, by reply or as its caption |
 | `/nzbsearch <query> [--mx\|--mn]` | Search NZBHydra2, paged, with a Telegraph mirror |
 | `/web <url>` | Add a supported hoster or direct URL |
-| `/dl [t\|u\|w] <id> [file-id]` | Download link; the type is detected when omitted |
 | `/status` | Live active downloads, refreshed every three seconds |
 | `/server` | TorBox plan plus host uptime, disk, CPU, and RAM |
 | `/purge` | Owner only. Permanently delete all TorBox content, after confirmation (private chat) |
@@ -97,7 +94,6 @@ torrent - [magnet or hash] add a torrent, or reply to a .torrent file
 nzb - [ID-1] [ID-2]... add NZBs from search results, or reply to a .nzb file
 nzbsearch - [query] search NZBs. Flags: --mx largest first, --mn smallest first
 web - [url] add a hoster or direct URL
-dl - [id] get a download link
 status - Live download progress
 server - TorBox and system stats
 purge - Delete all TorBox content (admin only)
@@ -117,8 +113,7 @@ unauth - [id] remove authorization (admin only)
 ## Groups and private chats
 
 Every command works the same in an authorized group as in an authorized private chat, except
-`/purge`, which the owner runs one-to-one. `/dl` answers where it was asked; behind the proxy its
-link is a Worker link, never a TorBox CDN URL.
+`/purge`, which the owner runs one-to-one.
 
 ## Download channel
 
@@ -140,7 +135,7 @@ SUCCESS • 8.45 GB • DL
 
 The name is monospace and `DL` opens a file page on the Worker: every file in the download
 with its size, each downloadable on its own, plus "Download all (zip)". A download that is a
-single file skips the page and downloads the file itself. The page link works for 24 hours
+single file skips the page and downloads the file itself. The page link works for 7 days
 (`PROXY_PAGE_TTL_SECONDS`) and can be opened any number of times; the file links on it last 6
 hours, so reload the page for fresh ones. Failed downloads show `FAILED` instead. A download
 deleted before it finishes is dropped after five minutes, and a deleted download's page says so.
@@ -148,7 +143,7 @@ deleted before it finishes is dropped after five minutes, and a deleted download
 ## NZB search (NZBHydra2)
 
 `/nzbsearch` and `/nzb` with NZB IDs use NZBHydra2's internal API. Results reach TorBox through the TorBox
-downloader configured in Hydra; the bot then finds the new TorBox download so `/dl` and channel
+downloader configured in Hydra; the bot then finds the new TorBox download so channel
 posts keep working.
 
 ```env
@@ -163,7 +158,7 @@ NZBSEARCH_AUTOREDACT=0
 
 ## Cloudflare download proxy
 
-The optional Worker hides TorBox CDN and WebDAV URLs behind your Worker domain.
+The optional Worker hides TorBox CDN URLs behind your Worker domain.
 
 ```bash
 cd workers/torbox-proxy
@@ -178,8 +173,6 @@ Configure the bot with the same secret:
 ```env
 PROXY_BASE_URL=https://your-worker.workers.dev
 PROXY_SECRET=the_same_long_secret
-PROXY_MODE=webdav
-PROXY_SINGLE_USE=1
 ```
 
 Tokens are unchanged from the Python bot, so an already deployed Worker keeps working. See
@@ -206,7 +199,6 @@ HTTP tests run against local fake TorBox and NZBHydra servers.
 - `internal/config/config.go` : Environment-based configuration and validation.
 - `internal/bot/bot.go` : Client setup, command routing, authorization, help text.
 - `internal/bot/add.go` : `/torrent`, `/nzb`, `/web`.
-- `internal/bot/dl.go` : `/dl` and link delivery.
 - `internal/bot/status.go` : Live `/status`.
 - `internal/bot/purge.go` : `/purge` confirmation and progress.
 - `internal/bot/search.go`, `nzb.go` : `/nzbsearch`, `/nzb`, Telegraph mirror, redaction.

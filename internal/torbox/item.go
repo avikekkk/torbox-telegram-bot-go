@@ -55,16 +55,6 @@ func percent(progress float64, known bool) float64 {
 	return math.Max(0, math.Min(100, progress))
 }
 
-// FirstFileID is the first file's ID, for a single-file link when a zip fails.
-func (it *Item) FirstFileID() (int64, bool) {
-	for _, file := range it.Files {
-		if file.HasID {
-			return file.ID, true
-		}
-	}
-	return 0, false
-}
-
 // NormalizedState is the state lower-cased with separators dropped, so
 // "stalled (no seeds)" and "stalledDL" compare the way TorBox means them.
 func (it *Item) NormalizedState() string {

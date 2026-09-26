@@ -43,9 +43,6 @@ const helpText = "<u><b>BOT COMMANDS</b></u>\n\n" +
 	"  --mn    [Smallest first]</code>\n\n" +
 	"<b>✦ To add a web download:</b>\n\n" +
 	"<code>/web [url]</code>\n\n" +
-	"<b>✦ To get a download link:</b>\n\n" +
-	"<code>/dl [id]</code>\n\n" +
-	"Use the ID from <code>/status</code> or your TorBox dashboard. The download type is detected automatically.\n\n" +
 	"<b>✦ To view the status:</b>\n\n" +
 	"<code>/server    [system stats]\n" +
 	"/status    [download progress]</code>\n\n" +
@@ -63,7 +60,6 @@ var botCommands = []tg.BotCommand{
 	{Command: "nzb", Description: "Add NZBs by NZB ID, or a .nzb file"},
 	{Command: "nzbsearch", Description: "Search NZBs via NZBHydra"},
 	{Command: "web", Description: "Debrid hoster / direct URL"},
-	{Command: "dl", Description: "Get a download link"},
 	{Command: "status", Description: "Live active tasks"},
 	{Command: "server", Description: "System stats"},
 }
@@ -354,8 +350,6 @@ func (b *Bot) onMessage(e tg.Entities, u messageUpdate) error {
 		b.runCommand(command, req, authorized, req.handleNZB)
 	case "web":
 		b.runCommand(command, req, authorized, req.handleWeb)
-	case "dl":
-		b.runCommand(command, req, authorized, req.handleDownload)
 	case "status":
 		b.runCommand(command, req, authorized, req.handleStatus)
 	case "nzbsearch":

@@ -26,7 +26,7 @@ func TestParseCommand(t *testing.T) {
 		wantOK      bool
 	}{
 		{"/torrent magnet:?xt=urn:btih:abc", "torrent", "magnet:?xt=urn:btih:abc", "magnet:?xt=urn:btih:abc", true},
-		{"/dl@MyTorBot 42", "dl", "42", "42", true},
+		{"/status@MyTorBot 42", "status", "42", "42", true},
 		{"/START", "start", "", "", true},
 		{"  /status  ", "status", "", "", true},
 		{"hello", "", "", "", false},
@@ -37,9 +37,9 @@ func TestParseCommand(t *testing.T) {
 		{"/nzb\nAAAA\nBBBB", "nzb", "AAAA", "AAAA\nBBBB", true},
 		{"/nzbsearch\nMarvel's Spider-Man 2", "nzbsearch", "Marvel's", "Marvel's Spider-Man 2", true},
 		// Mention and case are both normalized away.
-		{"/DL@MyTorBot 42", "dl", "42", "42", true},
+		{"/STATUS@MyTorBot 42", "status", "42", "42", true},
 		// The mention is matched case-insensitively, as Telegram treats it.
-		{"/dl@mytorbot 42", "dl", "42", "42", true},
+		{"/status@mytorbot 42", "status", "42", "42", true},
 		// Addressed to a different bot in the group: not ours to answer.
 		{"/help@SomeOtherBot", "", "", "", false},
 		{"/logs@cosmosusenetbot", "", "", "", false},
@@ -68,46 +68,6 @@ func TestParseCommand(t *testing.T) {
 		}
 		if payload != tc.wantPayload {
 			t.Errorf("parseCommand(%q) payload = %q, want %q", tc.text, payload, tc.wantPayload)
-		}
-	}
-}
-
-func TestParseDLArgs(t *testing.T) {
-	cases := []struct {
-		args     []string
-		kind     string
-		explicit bool
-		id       int64
-		fileID   int64 // 0 means none
-	}{
-		{[]string{"42"}, torbox.KindTorrent, false, 42, 0},
-		{[]string{"u", "7"}, torbox.KindUsenet, true, 7, 0},
-		{[]string{"w", "3"}, torbox.KindWebDL, true, 3, 0},
-		{[]string{"42", "5"}, torbox.KindTorrent, false, 42, 5},
-		{[]string{"u", "9", "f", "2"}, torbox.KindUsenet, true, 9, 2},
-		{[]string{"nzb", "1"}, torbox.KindUsenet, true, 1, 0},
-		// IDs copied out of Telegram come with punctuation attached.
-		{[]string{"#42"}, torbox.KindTorrent, false, 42, 0},
-		{[]string{"`99`"}, torbox.KindTorrent, false, 99, 0},
-		{[]string{"42,"}, torbox.KindTorrent, false, 42, 0},
-	}
-	for _, c := range cases {
-		got, err := parseDLArgs(c.args)
-		if err != nil {
-			t.Errorf("parseDLArgs(%v): %v", c.args, err)
-			continue
-		}
-		fileID := int64(0)
-		if got.fileID != nil {
-			fileID = *got.fileID
-		}
-		if got.kind != c.kind || got.explicit != c.explicit || got.id != c.id || fileID != c.fileID {
-			t.Errorf("parseDLArgs(%v) = %+v (file %d)", c.args, got, fileID)
-		}
-	}
-	for _, bad := range [][]string{{}, {"u"}, {"abc"}, {"42", "x"}} {
-		if _, err := parseDLArgs(bad); err == nil {
-			t.Errorf("parseDLArgs(%v) accepted bad input", bad)
 		}
 	}
 }
@@ -205,36 +165,9 @@ func TestAddedText(t *testing.T) {
 	}
 }
 
-func TestDownloadText(t *testing.T) {
-	link := &torbox.Link{Kind: torbox.KindTorrent, ID: 7, Name: "Pack", URL: "https://cdn.torbox.example/secret.zip"}
-
-	// Behind the proxy, only the Worker link is shown.
-	got := downloadText(link, "https://dl.example.workers.dev/d/TOKEN", true)
-	if !strings.HasPrefix(got, "<u><b>DOWNLOAD LINK</b></u>") || strings.Contains(got, "cdn.torbox") ||
-		!strings.Contains(got, `<a href="https://dl.example.workers.dev/d/TOKEN">Download</a>`) {
-		t.Errorf("proxied = %q", got)
-	}
-	if !strings.Contains(got, "ID: <code>7</code>") || !strings.HasSuffix(got, "<code>/dl 7</code>") {
-		t.Errorf("proxied = %q", got)
-	}
-
-	// Without one, the CDN link itself.
-	if got := downloadText(link, "", false); !strings.Contains(got, "cdn.torbox.example") {
-		t.Errorf("direct = %q", got)
-	}
-	// A proxy that could not make a link must not fall back to the CDN URL.
-	if got := downloadText(link, "", true); strings.Contains(got, "cdn.torbox") || !strings.Contains(got, "LINK NOT READY") {
-		t.Errorf("proxy failure = %q", got)
-	}
-	pending := &torbox.Link{Kind: torbox.KindTorrent, ID: 8}
-	if got := downloadText(pending, "", false); !strings.Contains(got, "Wait for the download to finish") {
-		t.Errorf("pending = %q", got)
-	}
-}
-
 func TestTorboxErrorTextHints(t *testing.T) {
 	got := torboxErrorText("TorBox HTTP 400: Download is not ready <yet>")
-	for _, want := range []string{"&lt;yet&gt;", "still be downloading", "<code>/dl 42</code>"} {
+	for _, want := range []string{"&lt;yet&gt;", "still be downloading"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("torboxErrorText = %q, missing %q", got, want)
 		}

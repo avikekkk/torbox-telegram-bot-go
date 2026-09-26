@@ -4,17 +4,16 @@
  * Token v2: base64url( 0x02 || iv(12) || AES-GCM(ciphertext+tag) )
  * Key = SHA-256(PROXY_SECRET)
  *
- * Modes: webdav, api and cdn stream one download; list shows a download's
- * files on a page, each linked with a short-lived api token minted here.
+ * Modes: list shows a download's files on a page, each linked with a
+ * short-lived api token minted here; api streams one file or the zip.
  *
  * Security:
  *  - Encrypted tokens (no cleartext CDN URLs)
- *  - Required exp; optional once+jti single-use (Cache API / KV)
+ *  - Required exp
  *  - Per-IP rate limit
  *  - SSRF host blocks for CDN fetch
  *
- * Secrets: PROXY_SECRET (16+), TORBOX_API_KEY (webdav/api)
- * Optional binding: TOKEN_KV (KV namespace) for durable single-use
+ * Secrets: PROXY_SECRET (16+), TORBOX_API_KEY
  */
 
 import { FONTS } from "./fonts.js";
@@ -24,7 +23,7 @@ const dec = new TextDecoder();
 const TOKEN_VERSION = 2;
 const IV_LEN = 12;
 const RL_PER_MINUTE = 30;
-// File links minted on a list page. Not single-use, so a download manager can
+// File links minted on a list page. Long enough for a download manager to
 // resume; the page itself can be reloaded for fresh ones.
 const FILE_LINK_TTL = 6 * 3600;
 
@@ -69,10 +68,6 @@ async function encryptToken(payload, secret) {
   return bytesToB64url(blob);
 }
 
-function randomJti() {
-  return bytesToB64url(crypto.getRandomValues(new Uint8Array(18)));
-}
-
 async function decryptToken(token, secret) {
   if (!token || !secret || secret.length < 16) return null;
   let blob;
@@ -96,10 +91,6 @@ async function decryptToken(token, secret) {
   } catch {
     return null;
   }
-}
-
-function basicAuth(user, pass) {
-  return "Basic " + btoa(`${user}:${pass}`);
 }
 
 function err(status, msg) {
@@ -153,6 +144,8 @@ const ICONS = {
   warn: "M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 15H13V17H11V15ZM11 7H13V13H11V7Z",
   gone: "M19 9H14V4H5V11.8571L6.5 13.25L10 9.5L13 14.5L15 12L18 15L15 14.5L13 17L10 13L7 16.5L5 15.25V20H19V9ZM21 8V20.9932C21 21.5501 20.5552 22 20.0066 22H3.9934C3.44495 22 3 21.556 3 21.0082V2.9918C3 2.45531 3.4487 2 4.00221 2H14.9968L21 8Z",
   up: "M10.0001 19.0001L19 19.0002L19 17.0002L12.0001 17.0001L12 6.8283L15.9497 10.778L17.364 9.36381L11 2.99985L4.63603 9.36381L6.05025 10.778L10 6.82825L10.0001 19.0001Z",
+  copy: "M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z",
+  check: "M9.9997 15.1709L19.1921 5.97852L20.6063 7.39273L9.9997 17.9993L3.63574 11.6354L5.04996 10.2212L9.9997 15.1709Z",
   lock: "M19 10H20C20.5523 10 21 10.4477 21 11V21C21 21.5523 20.5523 22 20 22H4C3.44772 22 3 21.5523 3 21V11C3 10.4477 3.44772 10 4 10H5V9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9V10ZM5 12V20H19V12H5ZM11 14H13V18H11V14ZM17 10V9C17 6.23858 14.7614 4 12 4C9.23858 4 7 6.23858 7 9V10H17Z",
 };
 
@@ -198,7 +191,7 @@ table{width:100%;border-collapse:collapse;table-layout:fixed}
 th,td{padding:.7rem 1.25rem;text-align:left;border-top:1px solid var(--line)}
 th{font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
 th.size,td.size{width:7.5rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
-th.act,td.act{width:3.75rem;text-align:center;padding-left:0}
+th.act,td.act{width:6.25rem;text-align:right;padding-left:0}
 tbody tr:hover{background:var(--hover)}
 td.name{overflow-wrap:anywhere;font-family:"Space Mono",ui-monospace,monospace;font-size:.84rem}
 .meta,th.size,td.size,nav.pages{font-family:"Space Mono",ui-monospace,monospace}
@@ -215,6 +208,12 @@ nav.crumbs a:hover{text-decoration:underline;text-underline-offset:3px}
 nav.crumbs .sep{opacity:.45}
 .dl{display:inline-grid;place-items:center;width:2.1rem;height:2.1rem;border-radius:8px;color:var(--accent);border:1px solid var(--line)}
 .dl:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.acts{display:inline-flex;gap:.35rem;vertical-align:middle}
+button.dl{background:none;font:inherit;padding:0;cursor:pointer}
+button.copy .ri.check,button.copy.done .ri.copy{display:none}
+button.copy.done .ri.check{display:block}
+button.copy.done,button.copy.done:hover{background:var(--text-ico);color:var(--accent-ink);border-color:var(--text-ico)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer.bar{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:.85rem 1.25rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
 .note{display:inline-flex;gap:.4rem;align-items:center}
 nav.pages{display:flex;gap:.5rem;align-items:center;font-variant-numeric:tabular-nums}
@@ -225,19 +224,57 @@ nav.pages span.off{opacity:.35}
 .msg .ri{width:2.4rem;height:2.4rem;color:var(--muted)}
 .msg h1{font-size:1.1rem;margin:0}
 .msg p{margin:0;color:var(--muted);max-width:28rem}
-@media (max-width:560px){main{padding:1rem .6rem 2rem}nav.crumbs{padding:.6rem .8rem}td.name .count{display:none}th,td{padding:.65rem .8rem}th.size,td.size{width:5.5rem}td.size{font-size:.85rem}th.act,td.act{width:3rem}header.top{padding:1rem}}
+@media (max-width:560px){main{padding:1rem .6rem 2rem}nav.crumbs{padding:.6rem .8rem}td.name .count{display:none}th,td{padding:.65rem .8rem}th.size,td.size{width:5.5rem}td.size{font-size:.85rem}th.act,td.act{width:5.2rem}.dl{width:2rem;height:2rem}.acts{gap:.3rem}header.top{padding:1rem}}
 `;
 
-// No scripts, nothing from other origins: the pages are plain HTML and CSS.
+// Nothing from other origins. The only script is the one inline block a page
+// passes to htmlPage, allowed by a per-response nonce.
 const PAGE_CSP =
   "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
-/** title is plain text; body is trusted HTML built by this Worker. */
-function htmlPage(title, body, status = 200) {
+// Copy link buttons: copy the absolute file link, then show a tick for a
+// moment. The textarea fallback covers browsers without the Clipboard API.
+const COPY_SCRIPT = `
+const say = document.getElementById("copied");
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button.copy");
+  if (!b) return;
+  const url = new URL(b.dataset.href, location.href).href;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    ok = true;
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = url;
+    t.setAttribute("readonly", "");
+    t.style.cssText = "position:fixed;opacity:0";
+    document.body.append(t);
+    t.select();
+    try { ok = document.execCommand("copy"); } catch {}
+    t.remove();
+  }
+  b.classList.toggle("done", ok);
+  b.title = ok ? "Copied" : "Copy failed";
+  say.textContent = ok ? "Link copied" : "Could not copy the link";
+  clearTimeout(b.reset);
+  b.reset = setTimeout(() => { b.classList.remove("done"); b.title = "Copy link"; }, 1500);
+});`;
+
+/** title is plain text; body is trusted HTML built by this Worker; script is
+ * trusted inline JavaScript, or "" for none. */
+function htmlPage(title, body, status = 200, script = "") {
+  let csp = PAGE_CSP;
+  let tag = "";
+  if (script) {
+    const nonce = bytesToB64url(crypto.getRandomValues(new Uint8Array(16)));
+    csp += `; script-src 'nonce-${nonce}'`;
+    tag = `<script nonce="${nonce}">${script}</script>`;
+  }
   return new Response(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="robots" content="noindex,nofollow"/><meta name="color-scheme" content="dark"/>
-<title>${escapeHtml(title)}</title><style>${PAGE_CSS}</style></head><body><main>${body}</main></body></html>`,
+<title>${escapeHtml(title)}</title><style>${PAGE_CSS}</style></head><body><main>${body}</main>${tag}</body></html>`,
     {
       status,
       headers: {
@@ -246,7 +283,7 @@ function htmlPage(title, body, status = 200) {
         "cache-control": "no-store",
         "referrer-policy": "no-referrer",
         "x-robots-tag": "noindex, nofollow",
-        "content-security-policy": PAGE_CSP,
+        "content-security-policy": csp,
       },
     }
   );
@@ -288,38 +325,6 @@ async function rateLimit(request, env) {
   await cache.put(
     req,
     new Response(String(count), {
-      headers: { "cache-control": `max-age=${ttl}`, "content-type": "text/plain" },
-    })
-  );
-  return null;
-}
-
-/** Single-use: mark jti consumed. Returns error Response if already used. */
-async function consumeOnce(payload, env) {
-  if (!payload.once && payload.once !== 1) return null;
-  const jti = payload.jti;
-  if (!jti || typeof jti !== "string") {
-    return err(400, "Single-use token missing jti");
-  }
-  const exp = Number(payload.exp) || Math.floor(Date.now() / 1000) + 3600;
-  const ttl = Math.max(60, Math.min(86400, exp - Math.floor(Date.now() / 1000) + 60));
-
-  // Prefer KV if bound (durable across isolates)
-  if (env.TOKEN_KV) {
-    const used = await env.TOKEN_KV.get(`jti:${jti}`);
-    if (used) return err(403, "This link was already used");
-    await env.TOKEN_KV.put(`jti:${jti}`, "1", { expirationTtl: ttl });
-    return null;
-  }
-
-  // Fallback: Cache API (best-effort single-use on free Workers)
-  const cache = caches.default;
-  const key = new Request(`https://torbot-jti.internal/${jti}`);
-  const hit = await cache.match(key);
-  if (hit) return err(403, "This link was already used");
-  await cache.put(
-    key,
-    new Response("1", {
       headers: { "cache-control": `max-age=${ttl}`, "content-type": "text/plain" },
     })
   );
@@ -381,66 +386,10 @@ async function streamFetch(url, init = {}, filename = "", env = null) {
   return new Response(resp.body, { status: resp.status, headers });
 }
 
-function webdavUrl(base, path) {
-  const segs = String(path || "")
-    .split("/")
-    .filter(Boolean)
-    .filter((s) => s !== "." && s !== "..")
-    .map(encodeURIComponent);
-  return `${base}/${segs.join("/")}`;
-}
-
 function safeFilename(name) {
   return String(name || "download")
     .replace(/[\r\n";\\]/g, "")
     .slice(0, 120);
-}
-
-async function handleWebdav(payload, env) {
-  const key = env.TORBOX_API_KEY;
-  if (!key) {
-    return err(500, "Worker missing TORBOX_API_KEY secret (needed for WebDAV).");
-  }
-  const base = (env.WEBDAV_BASE || "https://webdav.torbox.app").replace(/\/$/, "");
-  const paths = [];
-  if (payload.p) paths.push(payload.p);
-  if (Array.isArray(payload.alt)) paths.push(...payload.alt);
-
-  let last = null;
-  for (const p of paths) {
-    if (typeof p !== "string" || p.includes("..")) continue;
-    const path = p.startsWith("/") ? p : `/${p}`;
-    const finalUrl = webdavUrl(base, path);
-    if (!finalUrl.startsWith(base + "/")) continue;
-    const resp = await fetch(finalUrl, {
-      headers: {
-        Authorization: basicAuth("torbox", key),
-        "User-Agent": "TorBot-Worker/1.0",
-      },
-    });
-    if (resp.ok) {
-      const headers = new Headers();
-      const ct = resp.headers.get("content-type");
-      if (ct) headers.set("content-type", ct);
-      const cd = resp.headers.get("content-disposition");
-      if (cd) headers.set("content-disposition", cd);
-      else if (payload.n) {
-        headers.set(
-          "content-disposition",
-          `attachment; filename="${safeFilename(payload.n)}"`
-        );
-      }
-      const cl = resp.headers.get("content-length");
-      if (cl) headers.set("content-length", cl);
-      headers.set("cache-control", "private, no-store");
-      headers.set("x-proxied-by", "torbot-worker");
-      headers.set("x-content-type-options", "nosniff");
-      headers.set("referrer-policy", "no-referrer");
-      return new Response(resp.body, { status: 200, headers });
-    }
-    last = resp.status;
-  }
-  return err(last || 404, "WebDAV file not found.");
 }
 
 function kindToApi(kind) {
@@ -574,7 +523,7 @@ async function handleList(payload, env, secret, url) {
   const now = Math.floor(Date.now() / 1000);
   const mint = (claims) =>
     encryptToken(
-      { v: 1, iat: now, exp: now + FILE_LINK_TTL, jti: randomJti(), m: "api", k: payload.k, id, ...claims },
+      { v: 1, iat: now, exp: now + FILE_LINK_TTL, m: "api", k: payload.k, id, ...claims },
       secret
     );
 
@@ -636,14 +585,15 @@ async function handleList(payload, env, secret, url) {
         const count = `${folder.count} file${folder.count === 1 ? "" : "s"}`;
         return `<tr><td class="name"><a href="${href}">${icon("folder", "folder")}<span>${escapeHtml(folder.name)}</span><span class="count">${count}</span></a></td>` +
           `<td class="size">${humanSize(folder.size)}</td>` +
-          `<td class="act"><a class="dl" href="${href}" aria-label="Open ${escapeHtml(folder.name)}" title="Open">${icon("next")}</a></td></tr>`;
+          `<td class="act"><span class="acts"><a class="dl" href="${href}" aria-label="Open ${escapeHtml(folder.name)}" title="Open">${icon("next")}</a></span></td></tr>`;
       }
       const { f, name } = file;
       const href = `/d/${await mint({ f: f.id, n: f.short_name || name })}`;
       const type = fileIcon(name);
       return `<tr><td class="name"><a href="${href}" rel="nofollow">${icon(type, type)}<span>${escapeHtml(name)}</span></a></td>` +
         `<td class="size">${humanSize(f.size)}</td>` +
-        `<td class="act"><a class="dl" href="${href}" rel="nofollow" aria-label="Download ${escapeHtml(name)}" title="Download">${icon("download")}</a></td></tr>`;
+        `<td class="act"><span class="acts"><button type="button" class="dl copy" data-href="${href}" aria-label="Copy link to ${escapeHtml(name)}" title="Copy link">${icon("copy", "copy")}${icon("check", "check")}</button>` +
+        `<a class="dl" href="${href}" rel="nofollow" aria-label="Download ${escapeHtml(name)}" title="Download">${icon("download")}</a></span></td></tr>`;
     })
   );
   if (dir.length) {
@@ -677,18 +627,13 @@ async function handleList(payload, env, secret, url) {
 <header class="top"><div class="title"><span class="badge">${icon("folder")}</span><div><h1>${escapeHtml(title)}</h1>
 <div class="meta">${files.length} files · ${humanSize(total)}</div></div></div>
 <a class="btn" href="/d/${zip}" rel="nofollow">${icon("zip")}Download all</a></header>
-${crumbs}<table><thead><tr><th>Name</th><th class="size">Size</th><th class="act"><span hidden>Download</span></th></tr></thead>
+${crumbs}<table><thead><tr><th>Name</th><th class="size">Size</th><th class="act"><span hidden>Actions</span></th></tr></thead>
 <tbody>${body.join("")}</tbody></table>
 <footer class="bar"><span class="note">${icon("time")}Links expire in ${FILE_LINK_TTL / 3600} hours. Reload for fresh ones.</span>${nav}</footer>
-</div>`
+</div><p class="sr" id="copied" role="status" aria-live="polite"></p>`,
+    200,
+    COPY_SCRIPT
   );
-}
-
-async function handleCdn(payload) {
-  const url = payload.u;
-  if (!url || typeof url !== "string") return err(400, "Token missing CDN url");
-  if (!isAllowedCdnUrl(url)) return err(400, "CDN host not allowed");
-  return streamFetch(url, { headers: { "User-Agent": "TorBot-Worker/1.0" } });
 }
 
 export default {
@@ -738,16 +683,10 @@ export default {
       return messagePage("time", "Link expired", "This link is no longer valid. Ask for a new one.", 403);
     }
 
-    // Consume single-use BEFORE streaming so double-click fails closed
-    const onceErr = await consumeOnce(payload, env);
-    if (onceErr) return onceErr;
-
-    const mode = String(payload.m || "cdn").toLowerCase();
+    const mode = String(payload.m || "").toLowerCase();
     try {
-      if (mode === "webdav") return await handleWebdav(payload, env);
       if (mode === "api") return await handleApi(payload, env);
       if (mode === "list") return await handleList(payload, env, secret, url);
-      if (mode === "cdn") return await handleCdn(payload);
       return err(400, `Unknown mode: ${mode}`);
     } catch (e) {
       // The message can carry the requestdl URL, API key included: log it

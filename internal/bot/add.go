@@ -93,10 +93,7 @@ func torboxErrorText(raw string) string {
 	var tips []string
 	if containsAny(lower, "not ready", "not cached", "still downloading", "no files",
 		"download is not", "not completed", "processing") {
-		tips = append(tips, "Item may still be downloading — wait, then /dl again.")
-	}
-	if strings.Contains(raw, "400") || strings.Contains(lower, "invalid") {
-		tips = append(tips, "Check the download ID: "+codeBlock("/dl 42"))
+		tips = append(tips, "Item may still be downloading — wait, then try again.")
 	}
 	if containsAny(lower, "api key", "auth") || strings.Contains(raw, "401") || strings.Contains(raw, "403") {
 		tips = append(tips, "Ask the bot owner to check the TorBox API key.")
