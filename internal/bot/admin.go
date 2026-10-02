@@ -85,7 +85,10 @@ func (r *request) fetchReplied(ctx context.Context) (*tg.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	ids := []tg.InputMessageClass{&tg.InputMessageID{ID: header.ReplyToMsgID}}
+	// Ask for "what this message replied to" rather than the replied ID: in a
+	// group with privacy mode on, the bot never saw the replied message, and
+	// fetching it by ID returns an empty message.
+	ids := []tg.InputMessageClass{&tg.InputMessageReplyTo{ID: r.msg.ID}}
 
 	var messages tg.MessagesMessagesClass
 	if channel, ok := inputPeer.(*tg.InputPeerChannel); ok {

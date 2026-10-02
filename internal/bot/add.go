@@ -443,18 +443,3 @@ func (r *request) handleWeb(ctx context.Context) {
 	}
 	r.finishAdd(ctx, link)
 }
-
-// handleDocumentHint nudges a user who sent a bare .torrent or .nzb towards the
-// command that adds it. Anyone not authorized hears nothing: this is not a
-// command, and the bot answers only commands from strangers.
-func (r *request) handleDocumentHint(ctx context.Context) {
-	if !r.isAuthorized() {
-		return
-	}
-	_, name, _ := documentOf(r.msg)
-	if isNZBFile(name) {
-		r.replyLogged(ctx, "NZB file received. Reply with <code>/nzb</code> to add it.")
-		return
-	}
-	r.replyLogged(ctx, "Torrent file received. Reply with <code>/torrent</code> to add it.")
-}

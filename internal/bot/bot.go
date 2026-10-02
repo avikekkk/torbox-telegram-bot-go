@@ -334,10 +334,6 @@ func (b *Bot) onMessage(e tg.Entities, u messageUpdate) error {
 		return nil
 	}
 	if !ok {
-		// A bare .torrent or .nzb gets a nudge towards the command that adds it.
-		if _, name, found := documentOf(msg); found && (isTorrentFile(name) || isNZBFile(name)) {
-			b.goHandle("document hint", req.handleDocumentHint)
-		}
 		return nil
 	}
 
