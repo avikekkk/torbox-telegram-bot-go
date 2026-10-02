@@ -43,6 +43,9 @@ func (b *Bot) onCallbackQuery(e tg.Entities, u *tg.UpdateBotCallbackQuery) error
 	target, err := messagepeer.EntitiesFromUpdate(e).ExtractPeer(u.Peer)
 	if err != nil {
 		b.log.Error("Could not resolve callback peer", "err", err)
+		b.goHandle("callback", func(ctx context.Context) {
+			b.answerCallback(ctx, u.QueryID, "Something went wrong. Try again.", false)
+		})
 		return nil
 	}
 
